@@ -127,7 +127,31 @@ fn get_pipe_name(project_path: &str) -> String {
         .replace('/', "_")
         .replace(':', "_")
         .replace(' ', "_");
-    format!(r"\\.\pipe\locus_unity_{}", sanitized)
+
+    #[cfg(target_os = "windows")]
+    {
+        format!(r"\\.\pipe\locus_unity_{}", sanitized)
+    }
+
+    // On macOS, Unity's Mono runtime maps NamedPipeServerStream(name, ...) to a
+    // Unix Domain Socket at `$TMPDIR/CoreFxPipe_<name>` (verified empirically with
+    // Unity 2021.3 on macOS 14). std::env::temp_dir() resolves $TMPDIR with fallback
+    // to /tmp, matching Mono's behavior — both processes must share the same $TMPDIR
+    // (true for non-sandboxed user processes on Mac).
+    #[cfg(target_os = "macos")]
+    {
+        std::env::temp_dir()
+            .join(format!("CoreFxPipe_locus_unity_{}", sanitized))
+            .to_string_lossy()
+            .into_owned()
+    }
+
+    #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
+    {
+        // Other Unix targets not yet supported; return a placeholder. Transport layer
+        // will fail at connect time with a clear error message.
+        format!("/tmp/locus_unity_{}_unsupported", sanitized)
+    }
 }
 
 pub fn is_unity_project(path: &str) -> bool {
