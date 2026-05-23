@@ -732,9 +732,15 @@ pub fn run() {
                 .windows
                 .iter()
                 .find(|window| window.label == MAIN_WINDOW_LABEL)
-                .ok_or_else(|| format!("Missing '{}' window config", MAIN_WINDOW_LABEL))?;
+                .ok_or_else(|| format!("Missing '{}' window config", MAIN_WINDOW_LABEL))?
+                .clone();
+            #[cfg(target_os = "macos")]
+            let main_window_config = tauri::utils::config::WindowConfig {
+                decorations: true,
+                ..main_window_config
+            };
             startup_for_setup.mark("main_window_build_start");
-            tauri::WebviewWindowBuilder::from_config(app.handle(), main_window_config)?.build()?;
+            tauri::WebviewWindowBuilder::from_config(app.handle(), &main_window_config)?.build()?;
             startup_for_setup.mark("main_window_build_done");
 
             commands::start_unity_embed_control_server(app.handle().clone());
